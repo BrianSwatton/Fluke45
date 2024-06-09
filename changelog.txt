@@ -1,0 +1,11 @@
+
+    Fluke45 Changelog
+    ~~~~~~~~~~~~~~~~~
+
+
+09/06/24 - V1.0 a8
+~~~~~~~~~~~~~~~~~~
+At an operational state comparable with N56FU.py
+Still alpha, as a setting method is still to come.
+
+
