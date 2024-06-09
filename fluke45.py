@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 
-#   fluke45.py
+#   fluke45.py  [Alpha]
 
 #   Module for getting data from the Fluke 45 bench multimeter.
 #   Use or modify freely.
 
 #   Brian Swatton, June 2024
 
-__version__ = '1.0 a6'
-__date__ = '9th June 2024, 00:15'
+__version__ = '1.0 a7'
+__date__ = '9th June 2024, 11:23'
 
 import sys, os, time
 import logging
@@ -24,6 +24,14 @@ except ImportError as impErr:
 
 
 class Fluke45(serial.Serial):
+    modbits = {64:'comp', 32:'rel', 16:'dbw', 8:'db', 4:'hold', 2:'max', 1:'min' }
+    funcs = {'VDC':['Voltage', 'V',['dc']]}
+    funcs['VAC'] = ['Voltage', 'V',['ac']]
+    funcs['ADC'] = ['Current', 'A',['dc']]
+    funcs['AAC'] = ['Current', 'A',['ac']]
+    funcs['OHMS'] = ['Resistance', 'R',[]]
+    funcs['FREQ'] = ['Frequency', 'Hz',[]]
+    mults = { -3:'m', 3:'k', 0:'', 6:'M', 9:'!OR'}
 
     @classmethod
     def find_ports(cls, baudrate: int=9600) -> list:
@@ -40,7 +48,6 @@ class Fluke45(serial.Serial):
 
     @classmethod
     def try_port(cls, dev: str, baudrate: int=9600) -> bool:
-
         try:
             logging.debug(f"Testing port {dev}")
             tty = serial.Serial(port=dev, baudrate=baudrate, timeout=2)
@@ -90,48 +97,102 @@ class Fluke45(serial.Serial):
         self.baudrate = baudrate
         self.timeout = 2
         self.open()
-        self.mstate = {}
-        self._query('RATE F; FORMAT 1; AUTO')
+        self.meterstate = {}
+        self._query('*RST; RATE F; FORMAT 1; AUTO')
 
 
     def _query(self, query: str) -> str:
         packet = bytes(f'{query}\r\n'.encode())
         self.write(packet)
         ok, reply = Fluke45._getln(self)
-        logging.debug(f'reply: {reply}')
         pok, prompt = Fluke45._getln(self)
-        logging.debug(f'prompt: {prompt}')
         if len(prompt) > 0:
             self.gotprompt = prompt == b'=>'
-            logging.debug(f'self.gotprompt: {self.gotprompt}, {prompt}')
+        if query.upper() != 'MEAS1?':
+            self.meterstate = {}
         return reply.decode()
 
 
+    def refresh_state(self):
+        """Refreshes the meter's state disctionary"""
+        query = '*IDN?; FUNC1?; AUTO?; MOD?; VAL1?; RANGE1?'
+        replies = self._query(query).split(';')
+        self.meterstate = { 'id':replies.pop(0)}
+        func = replies.pop(0)
+        if func not in Fluke45.funcs.keys():
+            logging.error(f'Unrecognized function {func}')
+            return
+
+        self.meterstate['function'] = Fluke45.funcs[func][0]
+        self.meterstate['units'] = Fluke45.funcs[func][1]
+        modes = list(Fluke45.funcs[func][2])
+
+        if int(replies.pop(0)):
+            modes.append('auto')
+
+        modifiers = int(replies.pop(0))
+        for modbit in Fluke45.modbits:
+            if modifiers & modbit == modbit:
+                modes.append(Fluke45.modbits[modbit])
+
+        valstr = replies.pop(0)
+        self.meterstate['value'] = float(valstr)
+        # if 'E' in valstr:
+        #     num, pwr = valstr.split('E')
+        #     self.meterstate['mult'] = Fluke45.mults[int(pwr)]
+        # else:
+        #     self.meterstate['mult'] = ''
+        num, pwr = valstr.split('E')
+        self.meterstate['mult'] = Fluke45.mults[int(pwr)]
+
+        self.meterstate['display'] = f'{num} {self.meterstate["mult"]}{self.meterstate["units"]} {modes}'
+
+        self.meterstate['range'] = int(replies.pop(0))
+        self.meterstate['modes'] = modes
+
+
     def get_reading(self):
-        return float(self._query('MEAS1?'))
+        if not self.meterstate:
+            self.refresh_state()
+        valstr = (self._query('MEAS1?'))
+        self.meterstate['value'] = float(valstr)
+        if 'E' in valstr:
+            num, pwr = valstr.split('E')
+            self.meterstate['mult'] = Fluke45.mults[int(pwr)]
+        self.meterstate['display'] = f'{num} {self.meterstate["mult"]}{self.meterstate["units"]}'
+
+        for mode in self.meterstate['modes']:
+            self.meterstate['display'] += f' {mode}'
+        return self.meterstate['display']
 
 
     def get_state(self):
-        modbits = {64:'comp', 32:'rel', 16:'dbw', 8:'db', 4:'hold', 2:'max', 1:'min' }
-        funcs = {'VDC':['Voltage', 'V',['dc']]}
-        funcs['VAC'] = ['Voltage', 'V',['ac']]
-        state = {'modes':[]}
+        """Returns the state dictionary since last reading, or refreshing if empty"""
+        if not self.meterstate:
+            self.refresh_state()
+        return self.meterstate
 
-        function = self._query('FUNC1?')
-        state['function'] = funcs[function][0]
-        state['units'] = funcs[function][1]
-        state['modes'] = funcs[function][2]
 
-        modifiers = int(self._query('MOD?'))
-        for modbit in modbits:
-            if modifiers & modbit == modbit:
-                state['modes'].append(modbits[modbit])
-        return state
+    def is_set(self, function: str, modes: list, flush: bool =True) -> bool:
+        """Confirms or denies a setting of function with modes"""
+        lc_modes = [ mode.lower() for mode in modes]
+        state = self.get_state()
+        if state['function'].lower() != function.lower():
+            return False
+        for mode in lc_modes:
+            if mode not in state['modes']:
+                return False
+        for mode in state['modes']:
+            if mode not in lc_modes:
+                return False
+        return True
+
 
 
 # End of Fluke45 class
 
-def _connect(port='/dev/ttyS0'):
+
+def _connect(port=''):
     if port == '':
         print('Scanning ports... ', end='')
         ports = Fluke45.find_ports()
@@ -144,9 +205,6 @@ def _connect(port='/dev/ttyS0'):
 
 
 def _demo(port=''):
-    # logging.basicConfig(filename='debug.log', level=logging.DEBUG)
-    # logging.basicConfig(level=logging.DEBUG)
-
     print(f'\n  Module: fluke45 v{__version__}, {__date__}  ~ Brian Swatton\n')
     print('  For reading the Fluke 45 bench multimeter.')
     print('  Intended for import.\n')
@@ -156,15 +214,15 @@ def _demo(port=''):
         return
 
     while True:
-        print(meter.get_reading())
-        time.sleep(1)
-
-
+        print(f'  {meter.get_reading()}\r', end='')
+        time.sleep(0.2)
 
 
 ##################################################################
 # Main program
 
+# logging.basicConfig(filename='debug.log', level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
+
 if __name__ == '__main__':
     _demo()
-
