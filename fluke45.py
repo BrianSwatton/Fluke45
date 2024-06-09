@@ -7,8 +7,8 @@
 
 #   Brian Swatton, June 2024
 
-__version__ = '1.0 a7'
-__date__ = '9th June 2024, 11:23'
+__version__ = '1.0 a8'
+__date__ = '9th June 2024, 12:23'
 
 import sys, os, time
 import logging
@@ -117,7 +117,11 @@ class Fluke45(serial.Serial):
         """Refreshes the meter's state disctionary"""
         query = '*IDN?; FUNC1?; AUTO?; MOD?; VAL1?; RANGE1?'
         replies = self._query(query).split(';')
-        self.meterstate = { 'id':replies.pop(0)}
+
+        idport = self.port.split('/dev/')[1] if sys.platform == 'linux' else self.port
+        self.id = f'fluke45-{idport}'
+        self.meterstate = { 'id':self.id, 'info':replies.pop(0)}
+
         func = replies.pop(0)
         if func not in Fluke45.funcs.keys():
             logging.error(f'Unrecognized function {func}')
