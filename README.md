@@ -1,19 +1,26 @@
 # Fluke45
+
+11th June 2024
+
 Python module for reading the Fluke 45 multimeter
 
-    fluke45   v1.0 b8 (alpha), 9th June 2024
+    fluke45   v1.0 a8 (alpha), 9th June 2024
 
     Python module for reading data from the
     Fluke 45 bench mulitmeter.
 
-    Linux and Windows(hopefully but not yet tested)
+    Linux and Windows (hopefully but not yet tested)
 
-    By Brian Swatton, June 2024
+    By Brian Swatton
 
 
 I consider the module still as in alpha, because a method for
 changing settings is still to come. Apart from that, it would be beta,
 as it operates largely the same as my module for the N56FU meter.
+
+It's been designed so that applications can use either.  I already have
+a fair few python programs that use the Fluke 45s, but not in such a
+modular way.
 
 It doesn't utilize every feature of the Fluke 45, but should be useful
 for most computer driven metering tasks.
@@ -67,7 +74,8 @@ programmer friendly form:
     mult        string of reading mulitplier, ie 'm', 'k' etc.
     value       float of the value without mulitplier, in units
     units       string, 'V', 'A', 'Hz' etc
-    bargraph    int for bargraph (not exactly tested yet!)
+    range       integer, range number
+    bargraph    int for bargraph (oops, still to come!)
 
 "id" is also available as an instance variable, ie, meter.id
 
@@ -94,10 +102,6 @@ on different ports, but this as yet untested.  ie
 
 
 #### Collaboration
-
-I've really just put this module here to make it available for
-use, as I saw a number of posts looking for something like it
-when researching the meter.
 
 If you have something you'd like to contribute to the project, I
 am open to suggestion for improvement. I am a bit of a noob with
