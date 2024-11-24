@@ -7,8 +7,8 @@
 
 #   Brian Swatton, June 2024
 
-__version__ = '1.0 a8'
-__date__ = '9th June 2024, 12:23'
+__version__ = '1.0 a10'
+__date__ = '21st November 2024, 10:56'
 
 import sys, os, time
 import logging
@@ -39,6 +39,8 @@ class Fluke45(serial.Serial):
         logging.debug("Looking for ports")
         ports = []
         for port in serial.tools.list_ports.comports():
+            if port.hwid == 'n/a':
+                continue
             device = port.device
             logging.debug(f"Found port {device}")
             if Fluke45.try_port(device):
@@ -52,12 +54,32 @@ class Fluke45(serial.Serial):
             logging.debug(f"Testing port {dev}")
             tty = serial.Serial(port=dev, baudrate=baudrate, timeout=2)
             tty.reset_input_buffer()
-            tty.gotprompt = False
-            tty.gotprompt = Fluke45._getprompt(tty)
+            tty.gotprompt = Fluke45.isF45(tty)
             return tty.gotprompt
+
         except serial.SerialException as Error:
             logging.error(f"An error ocurred whilst testing port {dev}: {Error}")
             return False
+
+    @classmethod
+    def isF45(cls, tty):
+        """Confirms if device on tty is a Fluke45"""
+        f45 = False; tries = 3; wait = 2
+        tmout = time.time() + wait
+        while (not f45) and (tries>0) and tmout > time.time():
+            if tty.in_waiting > 3:
+                l = tty.readline(4)
+                if l[:2] == b'=>':
+                    f45 = True
+                else:
+                    tries -= 1
+            else:
+                if tty.in_waiting == 0:
+                    tty.write(chr(3).encode())
+                    tmout = time.time() + wait
+                    time.sleep(.5)
+                    tries -= 1
+        return f45
 
 
     @classmethod
@@ -67,6 +89,7 @@ class Fluke45(serial.Serial):
         got = False
         tries = 2
         while (not got) and (tries>0):
+            print(f'[{tty.port}] {tries=}')
             ok, l = Fluke45._getln(tty)
             if ok:
                 if l[:2] == b'=>':
@@ -75,6 +98,7 @@ class Fluke45(serial.Serial):
                 if tty.in_waiting == 0:
                     tty.write(chr(3).encode())
                 tries -= 1
+
         tty.gotprompt = got
         return got
 
@@ -86,7 +110,6 @@ class Fluke45(serial.Serial):
         while tmout > time.time():
             if tty.in_waiting > 0:
                 l = tty.readline()
-                # logging.debug(f'Read: "{l}"')
                 return True, l[:-2]
         return False, ''
 

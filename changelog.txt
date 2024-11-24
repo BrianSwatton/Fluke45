@@ -3,7 +3,22 @@
     ~~~~~~~~~~~~~~~~~
 
 
-09/06/24 - V1.0 a8
+21/11/24 - v1.0 a10
+~~~~~~~~~~~~~~~~~~~
+Fixed problem with updated OS returning large list of mostly invalid ports,
+which would raise errors when checked for a meter. Now looks for a valid hwid
+before attempting those checks, skipping if invalid.
+
+Also, previously changed the method of checking for a Fluke45 with find_ports(),
+using new function isF45(). This was to counter problems when an N56FU was also
+connected.  The new function is similar to get_prompt(), which was previously used,
+but with slightly different logic.
+
+Updated README to give info about setting the meter's state in lieu of a dedicated
+method.
+
+
+09/06/24 - v1.0 a8
 ~~~~~~~~~~~~~~~~~~
 At an operational state comparable with N56FU.py
 Still alpha, as a setting method is still to come.

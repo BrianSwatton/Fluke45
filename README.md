@@ -1,29 +1,31 @@
 # Fluke45
 
-11th June 2024
+24th Novemeber 2024
 
 Python module for reading the Fluke 45 multimeter
 
-    fluke45   v1.0 a8 (alpha), 9th June 2024
+    fluke45   v1.0 a10 (alpha), 21st November 2024
 
     Python module for reading data from the
     Fluke 45 bench mulitmeter.
 
-    Linux and Windows (hopefully but not yet tested)
+    Linux and Windows
 
     By Brian Swatton
 
 
-I consider the module still as in alpha, because a method for
-changing settings is still to come. Apart from that, it would be beta,
-as it operates largely the same as my module for the N56FU meter.
+I consider the module still as alpha, because a proper method for changing
+settings is still to come.  Settings can actually still be achieved by calling
+the _query(msg) function, using a message string conforming to the Fluke's
+protocols, which can be found in the user guide available online. Example below.
 
-It's been designed so that applications can use either.  I already have
-a fair few python programs that use the Fluke 45s, but not in such a
+Apart from that, it would be beta, as it operates largely the same as my module
+for the N56FU meter.  It's been designed so that applications can use either.  I
+already have a fair few python programs that use the Fluke 45s, but not in such a
 modular way.
 
-It doesn't utilize every feature of the Fluke 45, but should be useful
-for most computer driven metering tasks.
+It doesn't utilize every feature of the Fluke 45, but should be useful for most
+computer driven metering tasks.
 
 
 ### Module Usage
@@ -84,6 +86,23 @@ ie:
     meter.is_set('Voltage', ['auto','ac'])
 
 will return True if set so.
+
+
+#### Setting Meter State
+
+    You can do this using the call:
+
+         meter._query(msg)
+
+    with a string conforming to the Fluke45's communications protocols,
+    which can be found in the user guide available online.
+
+    i.e.
+
+    meter._query('*RST; RATE F; FORMAT 1; AUTO')
+
+    This is one I often use to initialise the meter, within this module and
+    other programs.
 
 
 #### flush=True?
